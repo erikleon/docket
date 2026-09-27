@@ -867,10 +867,11 @@ name reported found); rules that merely couldn't answer stay, since in
 the app they show an honest "couldn't tell". The report lists both
 groups separately.
 
-Open: the workflow's pull request step fails until the repository allows
-it ("Settings → Actions → General → Allow GitHub Actions to create and
-approve pull requests"). Left for the owner to decide; it changes the
-repository's security settings.
+The repository now allows GitHub Actions to create pull requests
+(enabled 2026-09-26 at the owner's request). The default workflow token
+stays read-only; only the weekly workflow asks for contents and
+pull-requests write in its own file. Not yet seen end to end: the last
+run found no wrong-answer rules, so it had no pull request to open.
 
 Changes from the plan, found while building:
 - **Redirects are never followed.** WhatsMyName's checker doesn't follow
