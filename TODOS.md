@@ -757,7 +757,11 @@ update → history; skipped time refused; pasted `<img onerror>`,
 the payload never ran). The two clock-change e2e tests run with
 `TZ=America/New_York` and skip on Windows, which ignores `TZ`.
 
-Found in minisiwyg-editor while integrating (not filed; see below):
+Found in minisiwyg-editor while integrating (later filed as
+[#32](https://github.com/erikleon/minisiwyg-editor/issues/32) and
+[#33](https://github.com/erikleon/minisiwyg-editor/issues/33), both fixed
+in 0.7.0 on 2026-09-30; the log now starts its editor while building the
+view, and its e2e test types after clicking Bold):
 - Bold, italic, and underline do nothing with no text selected
   (`src/editor.ts`, `if (range.collapsed) return;`), so "click Bold, then
   type" leaves the typed text plain. Most editors turn the style on for
