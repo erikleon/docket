@@ -46,13 +46,11 @@ test.describe("incident log", () => {
 
     const editor = window.getByRole("textbox", { name: "What happened" });
     await editor.click();
-    await editor.pressSequentially("Came to the house at night. Would not leave.");
-    // Select "Would not leave." and bold it. (The editor formats a selection;
-    // with no selection, Bold has nothing to apply to.)
-    await window.keyboard.down("Shift");
-    for (let i = 0; i < "Would not leave.".length; i++) await window.keyboard.press("ArrowLeft");
-    await window.keyboard.up("Shift");
+    await editor.pressSequentially("Came to the house at night. ");
+    // Bold with no text selected applies to what is typed next.
     await window.getByRole("button", { name: "Bold" }).click();
+    await expect(window.getByRole("button", { name: "Bold" })).toHaveAttribute("aria-pressed", "true");
+    await editor.pressSequentially("Would not leave.");
     await window.getByLabel("Who was involved? (optional)").fill("Jordan");
 
     const save = window.getByRole("button", { name: "Save entry" });

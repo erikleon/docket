@@ -33,10 +33,6 @@ export async function renderIncidentLogScreen(container: Element): Promise<void>
   const people = [...new Set((await window.docket.knownAccounts.list()).map((a) => a.personLabel))].sort();
   let view: View = { kind: "list" };
   let editor: Editor | undefined;
-  // createEditor needs its element already in the page, and each view is
-  // built detached and mounted in one step, so editor setup waits here
-  // until draw() has mounted the pane.
-  let afterMount: Array<() => void> = [];
 
   function go(next: View): void {
     editor?.destroy();
@@ -50,17 +46,15 @@ export async function renderIncidentLogScreen(container: Element): Promise<void>
     go(next);
   }
 
-  /** The editor plus its toolbar, optionally starting from an entry's current text. The editor itself starts once the pane is mounted. */
+  /** The editor plus its toolbar, optionally starting from an entry's current text. */
   function editorField(labelText: string, initialHtml: string | undefined, onInput: () => void): HTMLElement {
     const id = `incident-editor-${Date.now()}`;
     const surface = el("div", { class: "rich-editor", id, role: "textbox", "aria-multiline": "true", "aria-label": labelText });
     if (initialHtml) surface.append(sanitizeToFragment(initialHtml, LOG_POLICY));
     const toolbarSlot = el("div", { class: "rich-editor-toolbar" });
-    afterMount.push(() => {
-      editor = createEditor(surface, { policy: LOG_POLICY, onChange: onInput });
-      createToolbar(editor, { actions: TOOLBAR_ACTIONS, element: toolbarSlot });
-      onInput();
-    });
+    editor = createEditor(surface, { policy: LOG_POLICY, onChange: onInput });
+    createToolbar(editor, { actions: TOOLBAR_ACTIONS, element: toolbarSlot });
+    onInput();
     return el("div", { class: "field" }, [el("label", { for: id }, [labelText]), el("div", { class: "rich-editor-frame" }, [toolbarSlot, surface])]);
   }
 
@@ -248,12 +242,10 @@ export async function renderIncidentLogScreen(container: Element): Promise<void>
 
   function draw(): void {
     const pane = el("div", { class: "content-pane" });
-    afterMount = [];
     if (view.kind === "list") drawList(pane);
     else if (view.kind === "new") drawNew(pane);
     else drawEntry(pane, view.id, view.updating);
     mount(container, pane);
-    for (const setup of afterMount) setup();
   }
 
   draw();
