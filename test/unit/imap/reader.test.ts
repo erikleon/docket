@@ -30,7 +30,7 @@ describe("fetchNewMessages", () => {
   it("normalizes a message from a selected sender", async () => {
     const source = buildRawEmail({
       from: "stalker@example.com",
-      date: "Mon, 15 Feb 2026 10:00:00 +0000",
+      date: "Sun, 15 Feb 2026 10:00:00 +0000",
       subject: "hey",
       body: "I know where you work now",
     });
@@ -51,7 +51,7 @@ describe("fetchNewMessages", () => {
   });
 
   it("skips messages from senders not selected by the user", async () => {
-    const source = buildRawEmail({ from: "someone-else@example.com", date: "Mon, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "hello" });
+    const source = buildRawEmail({ from: "someone-else@example.com", date: "Sun, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "hello" });
     const fetcher = fakeFetcher([
       { uid: 5, source, envelope: { from: [{ address: "someone-else@example.com" }] } as never },
     ]);
@@ -62,7 +62,7 @@ describe("fetchNewMessages", () => {
   });
 
   it("matches sender case-insensitively", async () => {
-    const source = buildRawEmail({ from: "Stalker@Example.com", date: "Mon, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "hello" });
+    const source = buildRawEmail({ from: "Stalker@Example.com", date: "Sun, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "hello" });
     const fetcher = fakeFetcher([
       { uid: 5, source, envelope: { from: [{ address: "Stalker@Example.com" }] } as never },
     ]);
@@ -81,7 +81,7 @@ describe("fetchNewMessages", () => {
   });
 
   it("returns nothing when no senders are selected, rather than fetching everything", async () => {
-    const source = buildRawEmail({ from: "stalker@example.com", date: "Mon, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "hello" });
+    const source = buildRawEmail({ from: "stalker@example.com", date: "Sun, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "hello" });
     const fetcher = fakeFetcher([{ uid: 5, source, envelope: { from: [{ address: "stalker@example.com" }] } as never }]);
 
     const results = [];
@@ -90,7 +90,7 @@ describe("fetchNewMessages", () => {
   });
 
   it("every raw record's hash is reproducible and equals the raw RFC822 bytes", async () => {
-    const source = buildRawEmail({ from: "stalker@example.com", date: "Mon, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "verify me" });
+    const source = buildRawEmail({ from: "stalker@example.com", date: "Sun, 15 Feb 2026 10:00:00 +0000", subject: "hi", body: "verify me" });
     const fetcher = fakeFetcher([{ uid: 5, source, envelope: { from: [{ address: "stalker@example.com" }] } as never }]);
 
     const results = [];
@@ -116,12 +116,39 @@ describe("fetchNewMessages", () => {
     if (result?.kind === "quarantined") expect(result.quarantine.reason).toContain("no Date header");
   });
 
-  it("quarantines a message whose Date header can't be read (mailparser would return the current time)", async () => {
-    const source = buildRawEmail({ from: "stalker@example.com", date: "sometime last week", subject: "hi", body: "hello" });
+  async function readDate(date: string) {
+    const source = buildRawEmail({ from: "stalker@example.com", date, subject: "hi", body: "hello" });
     const fetcher = fakeFetcher([{ uid: 1, source, envelope: { from: [{ address: "stalker@example.com" }] } as never }]);
     const [result] = await collect(fetchNewMessages(fetcher, ["stalker@example.com"], 0));
+    return result;
+  }
+
+  it("quarantines a message whose Date header can't be read (mailparser would return the current time)", async () => {
+    const result = await readDate("sometime last week");
     expect(result?.kind).toBe("quarantined");
-    if (result?.kind === "quarantined") expect(result.quarantine.reason).toBe('unreadable Date header: "sometime last week"');
+    if (result?.kind === "quarantined") {
+      expect(result.quarantine.reason).toMatch(/^unreadable Date header \(.+\): "sometime last week"$/);
+    }
+  });
+
+  it("reads the forms real mailers send: old zone names and a trailing comment", async () => {
+    for (const [date, iso] of [
+      ["Mon, 16 Feb 2026 10:00:00 GMT", "2026-02-16T10:00:00.000Z"],
+      ["Mon, 16 Feb 2026 10:00:00 EST", "2026-02-16T15:00:00.000Z"],
+      ["Mon, 16 Feb 2026 10:00:00 +0000 (UTC)", "2026-02-16T10:00:00.000Z"],
+      ["16 Feb 2026 10:00 -0500", "2026-02-16T15:00:00.000Z"],
+    ] as const) {
+      const result = await readDate(date);
+      expect(result?.kind === "message" && result.message.sentAt.toISOString(), date).toBe(iso);
+    }
+  });
+
+  it("quarantines dates that Date.parse would guess at", async () => {
+    // A wrong day name, a two-digit year, and an ISO string: each is a sign the header isn't what it claims.
+    for (const date of ["Tue, 16 Feb 2026 10:00:00 -0500", "Mon, 16 Feb 26 10:00:00 -0500", "2026-02-16 10:00"]) {
+      expect(Number.isNaN(Date.parse(date)), date).toBe(false);
+      expect((await readDate(date))?.kind, date).toBe("quarantined");
+    }
   });
 });
 

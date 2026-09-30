@@ -1,5 +1,6 @@
 import { ImapFlow, type FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
+import { isDateTimeError, parseRfc5322DateTime } from "strictdatetime";
 import type { Message, RawRecord } from "../../types/message";
 import type { IngestResult } from "../adapter";
 import { hashPayload } from "../hash";
@@ -132,14 +133,20 @@ async function normalizeMessage(
  * The message's Date header, read from the raw header line rather than
  * mailparser's `date`: mailparser returns the current time for a Date
  * header it can't read, which would record the import time as the send
- * time with nothing to show it happened. Returns the quarantine reason
- * as a string when there's no usable date.
+ * time with nothing to show it happened. The header must be a valid
+ * RFC 5322 date; `Date.parse` would also guess at strings that aren't.
+ * The old zone names ("GMT", "EST") are accepted, since many mailers
+ * still send them and their meaning is fixed. Returns the quarantine
+ * reason as a string when there's no usable date.
  */
 function readDateHeader(headerLines: ReadonlyArray<{ key: string; line: string }>): Date | string {
   const line = headerLines.find((h) => h.key === "date")?.line;
   if (line === undefined) return "no Date header, so the send time is unknown";
   const value = line.slice(line.indexOf(":") + 1).trim();
-  const ms = Date.parse(value);
-  if (Number.isNaN(ms)) return `unreadable Date header: ${JSON.stringify(value)}`;
-  return new Date(ms);
+  try {
+    return new Date(parseRfc5322DateTime(value, { allowObsoleteZones: true }).epochMilliseconds);
+  } catch (err) {
+    if (!isDateTimeError(err)) throw err;
+    return `unreadable Date header (${err.message}): ${JSON.stringify(value)}`;
+  }
 }
