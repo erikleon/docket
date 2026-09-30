@@ -3,11 +3,12 @@ import {
   isDateTimeError,
   parsePlainDate,
   parsePlainDateTime,
+  plainDateOf,
   projectInstant,
   resolveZonedDateTime,
-  startOfZonedDateTimeUnit,
   toPlainDateString,
   toZonedDateTimeString,
+  zonedDateTimeFromPlainDate,
 } from "strictdatetime";
 
 /**
@@ -38,18 +39,9 @@ export function localTimeZone(): string {
  * ("2026-02-30", "09/24/2026").
  */
 export function startOfLocalDay(isoDate: string, timeZone: string): Date {
-  const date = parsePlainDate(isoDate);
-  // Noon exists on every calendar day in every zone, so resolving it never
-  // needs a policy; the day boundary is then found from there. A one-call
-  // version is requested in https://github.com/erikleon/strictdatetime/issues/3
-  const noon = resolveZonedDateTime({ ...date, hour: 12, minute: 0, second: 0, millisecond: 0 }, timeZone);
-  // "compatible" is the only policy that gives the first instant of the day
-  // both when midnight is skipped (it moves forward to the first real time)
-  // and when midnight happens twice (it takes the first one). "earlier" and
-  // "later" each put part of one day inside the next in one of those cases:
-  // https://github.com/erikleon/strictdatetime/issues/2
-  const start = startOfZonedDateTimeUnit(noon, "day", { disambiguation: "compatible" });
-  return new Date(start.epochMilliseconds);
+  // Where clocks skip midnight, the day starts at the first real time after
+  // it; where midnight happens twice, at the first one.
+  return new Date(zonedDateTimeFromPlainDate(parsePlainDate(isoDate), timeZone).epochMilliseconds);
 }
 
 /**
@@ -60,8 +52,7 @@ export function startOfLocalDay(isoDate: string, timeZone: string): Date {
  */
 export function localDateString(instant: Date, timeZone: string): string {
   try {
-    const { year, month, day } = projectInstant(instant.getTime(), timeZone);
-    return toPlainDateString({ year, month, day });
+    return toPlainDateString(plainDateOf(projectInstant(instant.getTime(), timeZone)));
   } catch (err) {
     if (isDateTimeError(err) && err.code === "OUT_OF_RANGE") return `${instant.toISOString().slice(0, 10)} UTC`;
     throw err;
@@ -111,10 +102,8 @@ export type LocalTimeResolution =
 export function resolveLocalDateTime(local: string, timeZone: string, choice?: "earlier" | "later"): LocalTimeResolution {
   let plain;
   try {
-    // A datetime-local input leaves out seconds when they're zero, which
-    // parsePlainDateTime doesn't accept yet:
-    // https://github.com/erikleon/strictdatetime/issues/6
-    plain = parsePlainDateTime(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local) ? `${local}:00` : local);
+    // Also takes "HH:MM", which a datetime-local input sends when seconds are zero.
+    plain = parsePlainDateTime(local);
   } catch (err) {
     if (isDateTimeError(err)) return { status: "invalid" };
     throw err;
