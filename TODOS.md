@@ -689,6 +689,12 @@ a PlainDateTime),
 [#5](https://github.com/erikleon/strictdatetime/issues/5) (strict RFC
 5322 date parser, which would replace the IMAP `Date.parse` fallback).
 
+All four, and #6 below, were fixed in strictdatetime 1.4.0 (2026-09-30).
+docket now uses `zonedDateTimeFromPlainDate` for boundary dates,
+`plainDateOf` for local days, and `parseRfc5322DateTime` for IMAP `Date`
+headers. The strict parser also caught test fixtures dated "Mon, 15 Feb
+2026", which was a Sunday.
+
 ## 21. ~~Upgrade Electron off Node 20~~ DONE 2026-09-24
 
 Electron 33 ships Node 20.18, which reached end of life in April 2026.
@@ -763,7 +769,8 @@ Found in minisiwyg-editor while integrating (not filed; see below):
 
 Filed on strictdatetime:
 [#6](https://github.com/erikleon/strictdatetime/issues/6) — plain time
-parsers reject "HH:MM", the format a datetime-local input produces.
+parsers reject "HH:MM", the format a datetime-local input produces. Fixed
+in 1.4.0; `resolveLocalDateTime` no longer pads the seconds.
 
 
 ## 23. ~~Ship a toxicity model~~ DONE 2026-09-25
