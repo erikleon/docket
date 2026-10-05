@@ -1,4 +1,10 @@
 {
   "$comment": "Remove-only list of WhatsMyName rule names the app skips, fetched by the app before each username check (from this file on main). It can only turn shipped rules off, never add or change one. The weekly workflow opens a pull request adding newly failing rules; remove entries when the pin is bumped.",
-  "skip": []
+  "skip": [
+    {
+      "name": "Justforfans",
+      "reason": "run 1: known handle not found (devinfrancoxxx: not-found; RileyChaux: not-found)",
+      "since": "2026-10-05"
+    }
+  ]
 }
